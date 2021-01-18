@@ -5,4 +5,4 @@ __pycache__/
 *.xlsx
 .idea/
 playground.py
-
+.DS_Store
