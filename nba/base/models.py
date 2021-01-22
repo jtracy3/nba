@@ -1,5 +1,4 @@
 from dataclasses import dataclass, fields, asdict
-import datetime as dt
 import abc
 
 
@@ -22,7 +21,6 @@ class DataClassBase:
         """Returns dataclass as dictionary"""
 
 
-# TODO: consider changing this to include a list. A boxscore record contains many players
 @dataclass
 class BoxscoreRecord(DataClassBase):
     boxscoreId: str = None
@@ -77,12 +75,76 @@ class PlayerYearRecord(DataClassBase):
     pos: str = None
     nbaDebutYear: int = None
     collegeName: str = None
-    yearsPro: str = None
+    yearsPro: int = None
     # draft_round_number: int
     # draft_pick_number: int
     # draft_year: int
     # draft_team_id: int
     dateOfBirthUTC: str = None
+
+    def __post_init__(self):
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if not isinstance(value, field.type):
+                if field.type == int or field.type == float:
+                    if not value or '-' in value:
+                        setattr(self, field.name, None)
+                    else:
+                        setattr(self, field.name, field.type(value))
+                else:
+                    if not value:
+                        setattr(self, field.name, '')
+                    else:
+                        setattr(self, field.name, field.type(value))
+
+    def keys(self):
+        return [field.name for field in fields(self)]
+
+    def asdict(self):
+        return asdict(self)
+
+
+@dataclass
+class ScheduleRecord(DataClassBase):
+    seasonId: int = None
+    gameId: str = None
+    seasonStageId: str = None
+    startTimeUTC: str = None
+    startDateEastern: str = None
+    nugget: str = None
+    hTeamId: str = None
+    vTeamId: str = None
+
+    def keys(self):
+        return [field.name for field in fields(self)]
+
+    def asdict(self):
+        return asdict(self)
+
+
+@dataclass
+class TeamRecord(DataClassBase):
+    teamId: str = None
+    seasonId: int = None
+    fullName: str = None
+    tricode: str = None
+    nickname: str = None
+    teamShortName: str = None
+    city: str = None
+    altCityName: str = None
+    isAllStar: bool = None
+    confName: str = None
+    divName: str = None
+
+    def __post_init__(self):
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if not isinstance(value, field.type):
+                if field.type == str:
+                    value = '' if not value else value
+                if field.type == int or field.type == float:
+                    value = 0 if not value else value
+                setattr(self, field.name, field.type(value))
 
     def keys(self):
         return [field.name for field in fields(self)]

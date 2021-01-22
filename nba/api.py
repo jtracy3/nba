@@ -1,6 +1,9 @@
 import requests
-from nba.constants import BOXSCORE, PLAYERS
-from nba.base.models import BoxscoreRecord, PlayerYearRecord
+from nba.constants import BOXSCORE, PLAYERS, SCHEDULE, TEAMS
+from nba.base.models import (
+    BoxscoreRecord, PlayerYearRecord, ScheduleRecord,
+    TeamRecord
+)
 from hashlib import md5
 from typing import List
 
@@ -94,7 +97,7 @@ class Boxscore(NBAApi):
         """
 
         endpoint = self._URL + f'prod/v1/{game_date}/{game_id}_boxscore.json'
-        r_json = requests.get(endpoint).json()
+        r_json = requests.get(endpoint, timeout=120).json()
 
         # Because extract creates a generator we need to turn it into a list
         r_json = list(self.extract(r_json, self.key))[0]
@@ -116,7 +119,7 @@ class Players(NBAApi):
 
         Args:
             response: json response
-            season_id: game id
+            season: season
         Return:
             data: list of PlayerRecords
         """
@@ -144,5 +147,102 @@ class Players(NBAApi):
         r_json = list(self.extract(r_json, self.key))[0]
         r_json = [self._filter_response(r, values=PLAYERS) for r in r_json]
         r_json = list(filter(lambda x: x['teamId'] != '', r_json))
+
+        return self._records(r_json, season)
+
+
+class Schedule(NBAApi):
+
+    key = 'standard'
+
+    @staticmethod
+    def _records(response, season):
+        """
+        Turns the json response into a list of `Records` to enforce data types.
+        `Records` are of the `DataClassBase` type.
+
+        Args:
+            response: json response
+            season: season
+        Return:
+            data: list of PlayerRecords
+        """
+        data = []
+        for dict_ in response:
+            dat = {
+                'gameId': dict_['gameId'],
+                'seasonId': season,
+                'seasonStageId': dict_['seasonStageId'],
+                'startTimeUTC': dict_['startTimeUTC'],
+                'startDateEastern': dict_['startDateEastern'],
+                'nugget': dict_['nugget']['text'],
+                'hTeamId': dict_['hTeam']['teamId'],
+                'vTeamId': dict_['vTeam']['teamId']
+            }
+            data.append(ScheduleRecord(**dat))
+
+        return data
+
+    def get(self, season: int):
+        """
+        GET response from players endpoint
+
+        Args:
+            season (int): season
+        Return:
+            List of `ScheduleRecord`s
+        """
+
+        endpoint = self._URL + f'prod/v1/{season}/schedule.json'
+        r_json = requests.get(endpoint).json()
+
+        # Because extract creates a generator we need to turn it into a list
+        r_json = list(self.extract(r_json, self.key))[0]
+        r_json = [self._filter_response(r, values=SCHEDULE) for r in r_json]
+
+        return self._records(r_json, season)
+
+
+class Teams(NBAApi):
+
+    key = 'standard'
+
+    @staticmethod
+    def _records(response, season):
+        """
+        Turns the json response into a list of `Records` to enforce data types.
+        `Records` are of the `DataClassBase` type.
+
+        Args:
+            response: json response
+            season: season
+        Return:
+            data: list of TeamRecords
+        """
+        data = []
+        for dict_ in response:
+            dict_.pop('isNBAFranchise')
+            dict_['seasonId'] = season
+            data.append(TeamRecord(**dict_))
+
+        return data
+
+    def get(self, season: int):
+        """
+        GET response from players endpoint
+
+        Args:
+            season (int): season
+        Return:
+            List of `PlayerYearRecord`s
+        """
+
+        endpoint = self._URL + f'prod/v2/{season}/teams.json'
+        r_json = requests.get(endpoint).json()
+
+        # Because extract creates a generator we need to turn it into a list
+        r_json = list(self.extract(r_json, self.key))[0]
+        r_json = [self._filter_response(r, values=TEAMS) for r in r_json]
+        r_json = list(filter(lambda x: x['isNBAFranchise'], r_json))
 
         return self._records(r_json, season)

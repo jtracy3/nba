@@ -36,7 +36,6 @@ TEAMS = [
     "tricode",
     "teamId",
     "nickname",
-    "urlName",
     "teamShortName",
     "confName",
     "divName"
