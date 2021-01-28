@@ -59,11 +59,11 @@ class BoxscoreRecord(DataClassBase):
 
 
 @dataclass
-class PlayerYearRecord(DataClassBase):
-    playerYearId: str = None
+class PlayerRecord(DataClassBase):
+    # playerYearId: str = None
     personId: str = None
-    teamId: str = None
-    seasonId: int = None
+    # teamId: str = None
+    # seasonId: int = None
     firstName: str = None
     lastName: str = None
     temporaryDisplayName: str = None

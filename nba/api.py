@@ -1,7 +1,7 @@
 import requests
 from nba.constants import BOXSCORE, PLAYERS, SCHEDULE, TEAMS
 from nba.base.models import (
-    BoxscoreRecord, PlayerYearRecord, ScheduleRecord,
+    BoxscoreRecord, PlayerRecord, ScheduleRecord,
     TeamRecord
 )
 from hashlib import md5
@@ -125,8 +125,8 @@ class Players(NBAApi):
         """
         data = []
         for dict_ in response:
-            key = md5((dict_['personId'] + str(season)).encode()).hexdigest()
-            data.append(PlayerYearRecord(**dict(dict_, playerYearId=key, seasonId=season)))
+            dict_.pop('teamId')
+            data.append(PlayerRecord(**dict_))
 
         return data
 
