@@ -1,37 +1,13 @@
 import requests
-from nba.constants import BOXSCORE, PLAYERS, SCHEDULE, TEAMS
-from nba.base.models import (
-    BoxscoreRecord, PlayerRecord, ScheduleRecord,
-    TeamRecord
-)
+from nba.constants import BOXSCORE, PLAYERS, SCHEDULE, TEAMS, SCOREBOARD
 from hashlib import md5
 from typing import List
+from collections import OrderedDict
 
 
 class NBAApi:
 
     _URL = 'http://data.nba.net/data/10s/'
-
-    @staticmethod
-    def _clean_response(endpoint: str, key_map: List[str], values: List[str] = None):
-
-        response = requests.get(endpoint)
-        response_json = response.json()
-
-        try:
-            for key in key_map:
-                response_json = response_json[key]
-        except KeyError:
-            raise KeyError
-
-        output = list()
-        for data in response_json:
-            if values is not None:
-                output.append({data_key: data[data_key] for data_key in values if data_key in data})
-            else:
-                output.append(data)
-
-        return output
 
     def extract(self, json, key):
         """
@@ -65,26 +41,6 @@ class Boxscore(NBAApi):
 
     key = 'activePlayers'
 
-    @staticmethod
-    def _records(response, game_id, game_date):
-        """
-        Turns the json response into a list of `Records` to enforce data types.
-        `Records` are of the `DataClassBase` type.
-
-        Args:
-            response: json response
-            game_id: game id
-            game_date: game data format 'YYYYMMDD'-'%Y%m%d'
-        Return:
-            data: list of BoxscoreRecords
-        """
-        data = []
-        for dict_ in response:
-            key = md5((dict_['personId'] + game_id).encode()).hexdigest()
-            data.append(BoxscoreRecord(**dict(dict_, boxscoreId=key, gameId=game_id, gameDate=game_date)))
-
-        return data
-
     def get(self, game_date: str, game_id: str):
         """
         GET response from boxscore endpoint
@@ -93,7 +49,7 @@ class Boxscore(NBAApi):
             game_date (str): game date
             game_id (str): game_id
         Return:
-            List of `BoxscoreRecord`s
+            List of boxscore dictionaries
         """
 
         endpoint = self._URL + f'prod/v1/{game_date}/{game_id}_boxscore.json'
@@ -103,32 +59,18 @@ class Boxscore(NBAApi):
         r_json = list(self.extract(r_json, self.key))[0]
         r_json = [self._filter_response(r, values=BOXSCORE) for r in r_json]
 
-        return self._records(r_json, game_id, game_date)
+        boxscore = []
+        for dict_ in r_json:
+            key = md5((dict_['personId'] + game_id).encode()).hexdigest()
+            boxscore.append(dict(dict_, gameId=game_id, gameDate=game_date, boxscoreId=key))
+
+        return boxscore
 
 
 # TODO: add players info
 class Players(NBAApi):
 
     key = 'standard'
-
-    @staticmethod
-    def _records(response, season):
-        """
-        Turns the json response into a list of `Records` to enforce data types.
-        `Records` are of the `DataClassBase` type.
-
-        Args:
-            response: json response
-            season: season
-        Return:
-            data: list of PlayerRecords
-        """
-        data = []
-        for dict_ in response:
-            dict_.pop('teamId')
-            data.append(PlayerRecord(**dict_))
-
-        return data
 
     def get(self, season: int):
         """
@@ -137,7 +79,7 @@ class Players(NBAApi):
         Args:
             season (int): season
         Return:
-            List of `PlayerYearRecord`s
+            List of player dictionaries
         """
 
         endpoint = self._URL + f'prod/v1/{season}/players.json'
@@ -148,27 +90,37 @@ class Players(NBAApi):
         r_json = [self._filter_response(r, values=PLAYERS) for r in r_json]
         r_json = list(filter(lambda x: x['teamId'] != '', r_json))
 
-        return self._records(r_json, season)
+        players = []
+        for dict_ in r_json:
+            dict_.pop('teamId')
+            players.append(dict_)
+
+        return
 
 
 class Schedule(NBAApi):
 
     key = 'standard'
 
-    @staticmethod
-    def _records(response, season):
+    def get(self, season: int):
         """
-        Turns the json response into a list of `Records` to enforce data types.
-        `Records` are of the `DataClassBase` type.
+        GET response from schedule endpoint
 
         Args:
-            response: json response
-            season: season
+            season (int): season
         Return:
-            data: list of PlayerRecords
+            List of schedule dictionaries
         """
-        data = []
-        for dict_ in response:
+
+        endpoint = self._URL + f'prod/v1/{season}/schedule.json'
+        r_json = requests.get(endpoint).json()
+
+        # Because extract creates a generator we need to turn it into a list
+        r_json = list(self.extract(r_json, self.key))[0]
+        r_json = [self._filter_response(r, values=SCHEDULE) for r in r_json]
+
+        schedules = []
+        for dict_ in r_json:
             dat = {
                 'gameId': dict_['gameId'],
                 'seasonId': season,
@@ -179,62 +131,23 @@ class Schedule(NBAApi):
                 'hTeamId': dict_['hTeam']['teamId'],
                 'vTeamId': dict_['vTeam']['teamId']
             }
-            data.append(ScheduleRecord(**dat))
+            schedules.append(dat)
 
-        return data
-
-    def get(self, season: int):
-        """
-        GET response from players endpoint
-
-        Args:
-            season (int): season
-        Return:
-            List of `ScheduleRecord`s
-        """
-
-        endpoint = self._URL + f'prod/v1/{season}/schedule.json'
-        r_json = requests.get(endpoint).json()
-
-        # Because extract creates a generator we need to turn it into a list
-        r_json = list(self.extract(r_json, self.key))[0]
-        r_json = [self._filter_response(r, values=SCHEDULE) for r in r_json]
-
-        return self._records(r_json, season)
+        return schedules
 
 
 class Teams(NBAApi):
 
     key = 'standard'
 
-    @staticmethod
-    def _records(response, season):
-        """
-        Turns the json response into a list of `Records` to enforce data types.
-        `Records` are of the `DataClassBase` type.
-
-        Args:
-            response: json response
-            season: season
-        Return:
-            data: list of TeamRecords
-        """
-        data = []
-        for dict_ in response:
-            dict_.pop('isNBAFranchise')
-            dict_['seasonId'] = season
-            data.append(TeamRecord(**dict_))
-
-        return data
-
     def get(self, season: int):
         """
-        GET response from players endpoint
+        GET response from teams endpoint
 
         Args:
             season (int): season
         Return:
-            List of `PlayerYearRecord`s
+            List of team dictionaries
         """
 
         endpoint = self._URL + f'prod/v2/{season}/teams.json'
@@ -245,4 +158,51 @@ class Teams(NBAApi):
         r_json = [self._filter_response(r, values=TEAMS) for r in r_json]
         r_json = list(filter(lambda x: x['isNBAFranchise'], r_json))
 
-        return self._records(r_json, season)
+        teams = []
+        for dict_ in r_json:
+            dict_.pop('isNBAFranchise')
+            dict_['seasonId'] = season
+            teams.append(dict_)
+
+        return teams
+
+
+class Scoreboard(NBAApi):
+
+    key = 'games'
+
+    def get(self, game_date: str):
+        """
+        GET response from scoreboard endpoint
+
+        Args:
+            game_date (int): season
+        Return:
+            List of scoreboard dictionaries
+        """
+
+        endpoint = self._URL + f'prod/v2/{game_date}/scoreboard.json'
+        r_json = requests.get(endpoint).json()
+
+        # Because extract creates a generator we need to turn it into a list
+        r_json = list(self.extract(r_json, self.key))[0]
+        r_json = [self._filter_response(r, values=SCOREBOARD) for r in r_json]
+
+        scoreboard = []
+        for dict_ in r_json:
+            dat = {
+                'gameId': dict_['gameId'],
+                'seasonId': dict_['seasonYear'],
+                'seasonStageId': dict_['seasonStageId'],
+                'leagueName': dict_['leagueName'],
+                'startTimeUTC': dict_['startTimeUTC'],
+                'endTimeUTC': dict_['endTimeUTC'],
+                'startDateEastern': dict_['startDateEastern'],
+                'nugget': dict_['nugget']['text'],
+                'attendance': dict_['attendance'],
+                'hTeamId': dict_['hTeam']['teamId'],
+                'vTeamId': dict_['vTeam']['teamId']
+            }
+            scoreboard.append(dat)
+
+        return scoreboard
