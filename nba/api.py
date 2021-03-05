@@ -196,7 +196,7 @@ class Scoreboard(NBAApi):
                 'seasonStageId': dict_['seasonStageId'],
                 'leagueName': dict_['leagueName'],
                 'startTimeUTC': dict_['startTimeUTC'],
-                'endTimeUTC': dict_['endTimeUTC'],
+                #'endTimeUTC': dict_['endTimeUTC'],
                 'startDateEastern': dict_['startDateEastern'],
                 'nugget': dict_['nugget']['text'],
                 'attendance': dict_['attendance'],
