@@ -1,8 +1,6 @@
 import requests
 from nba.constants import BOXSCORE, PLAYERS, SCHEDULE, TEAMS, SCOREBOARD
 from hashlib import md5
-from typing import List
-from collections import OrderedDict
 
 
 class NBAApi:
@@ -65,6 +63,57 @@ class Boxscore(NBAApi):
             boxscore.append(dict(dict_, gameId=game_id, gameDate=game_date, boxscoreId=key))
 
         return boxscore
+
+
+class TeamStats(NBAApi):
+
+    key = 'stats'
+
+    @staticmethod
+    def home_away_stats(json):
+
+        stats = {}
+
+        home_away = {
+            "hTeam": "home",
+            "vTeam": "away"
+        }
+
+        for key, value in home_away.items():
+            stats[value + "_fast_break_points"] = json[key]["fastBreakPoints"]
+            stats[value + "_points_in_paint"] = json[key]["pointsInPaint"]
+            stats[value + "_biggest_lead"] = json[key]["biggestLead"]
+            stats[value + "_second_chance_points"] = json[key]["secondChancePoints"]
+            stats[value + "_points_off_turnovers"] = json[key]["pointsOffTurnovers"]
+            stats[value + "_longest_run"] = json[key]["longestRun"]
+
+            for key1, value1 in json[key]["totals"].items():
+                if key1 in BOXSCORE:
+                    stats[value + "_" + key1] = value1
+
+        return stats
+
+    def get(self, game_date: str, game_id: str):
+        """
+        GET response from boxscore endpoint
+
+        Args:
+            game_date (str): game date
+            game_id (str): game_id
+        Return:
+            List of boxscore dictionaries
+        """
+
+        endpoint = self._URL + f'prod/v1/{game_date}/{game_id}_boxscore.json'
+        r_json = requests.get(endpoint, timeout=120).json()
+
+        # Because extract creates a generator we need to turn it into a list
+        r_json = list(self.extract(r_json, self.key))[0]
+
+        team_stats = self.home_away_stats(r_json)
+        team_stats.update({"gameDate": game_date, "gameId": game_id})
+
+        return team_stats
 
 
 # TODO: add players info
@@ -196,7 +245,6 @@ class Scoreboard(NBAApi):
                 'seasonStageId': dict_['seasonStageId'],
                 'leagueName': dict_['leagueName'],
                 'startTimeUTC': dict_['startTimeUTC'],
-                #'endTimeUTC': dict_['endTimeUTC'],
                 'startDateEastern': dict_['startDateEastern'],
                 'nugget': dict_['nugget']['text'],
                 'attendance': dict_['attendance'],

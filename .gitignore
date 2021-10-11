@@ -7,3 +7,4 @@ __pycache__/
 playground.py
 .DS_Store
 notebooks
+data/
